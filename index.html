@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes Dual</title>
+    <title>Creador de Wireframes Mejorado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         body {
@@ -133,7 +133,9 @@
                         <li>3. Repite el proceso para añadir más elementos</li>
                         <br/>
                         <li>⭕ Círculo = Radio button</li>
+                        <li>⭕• Círculo con punto = Radio button seleccionado</li>
                         <li>☐ Cuadrado = Checkbox</li>
+                        <li>☑️ Cuadrado con tick = Checkbox seleccionado</li>
                         <li>▭ Rectángulo = Input/Botón</li>
                         <li>Texto corto = Label</li>
                     </ul>
@@ -177,11 +179,19 @@
             const bounds = path.getBoundingRect();
             
             if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
-                return { type: 'radio button', bounds: bounds };
-            }
-            
-            if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
-                return { type: 'checkbox', bounds: bounds };
+                if (isCircular(path)) {
+                    return { 
+                        type: 'radio button', 
+                        selected: hasInnerDot(path), 
+                        bounds: bounds 
+                    };
+                } else {
+                    return { 
+                        type: 'checkbox', 
+                        checked: hasInnerMark(path), 
+                        bounds: bounds 
+                    };
+                }
             }
             
             if (bounds.width > bounds.height * 1.5) {
@@ -193,6 +203,29 @@
             }
             
             return { type: 'unknown', bounds: bounds };
+        }
+
+        function isCircular(path) {
+            const bounds = path.getBoundingRect();
+            const area = bounds.width * bounds.height;
+            const perimeter = path.length;
+            const circularity = (4 * Math.PI * area) / (perimeter * perimeter);
+            return circularity > 0.8; // Ajusta este valor según sea necesario
+        }
+
+        function hasInnerDot(path) {
+            const center = path.getCenterPoint();
+            const points = path.path.filter(p => p[0] === 'L').map(p => ({ x: p[1], y: p[2] }));
+            const distancesToCenter = points.map(p => 
+                Math.sqrt(Math.pow(p.x - center.x, 2) + Math.pow(p.y - center.y, 2))
+            );
+            const averageDistance = distancesToCenter.reduce((a, b) => a + b) / distancesToCenter.length;
+            const hasInnerPoints = distancesToCenter.some(d => d < averageDistance * 0.5);
+            return hasInnerPoints;
+        }
+
+        function hasInnerMark(path) {
+            return path.complexity() > 10; // Si el path es complejo, asumimos que tiene una marca
         }
 
         function drawRefinedShape(interpretation) {
@@ -209,6 +242,15 @@
                         strokeWidth: 2,
                         fill: 'transparent'
                     });
+                    if (interpretation.selected) {
+                        const dot = new fabric.Circle({
+                            left: bounds.left + bounds.width / 4,
+                            top: bounds.top + bounds.height / 4,
+                            radius: Math.min(bounds.width, bounds.height) / 4,
+                            fill: '#000000'
+                        });
+                        refinedCanvas.add(dot);
+                    }
                     break;
 
                 case 'checkbox':
@@ -221,13 +263,22 @@
                         strokeWidth: 2,
                         fill: 'transparent'
                     });
+                    if (interpretation.checked) {
+                        const check = new fabric.Text('✓', {
+                            left: bounds.left + bounds.width / 4,
+                            top: bounds.top,
+                            fontSize: bounds.height,
+                            fill: '#000000'
+                        });
+                        refinedCanvas.add(check);
+                    }
                     break;
 
                 case 'input/button':
                     shape = new fabric.Rect({
                         left: bounds.left,
                         top: bounds.top,
-                        width: bounds.width,
+                        width: Math.max(bounds.width, 100), // Asegurar un ancho mínimo
                         height: bounds.height,
                         stroke: '#000000',
                         strokeWidth: 2,
@@ -248,6 +299,11 @@
             }
 
             if (shape) {
+                // Ajustar la posición
+                shape.set({
+                    left: Math.round(shape.left),
+                    top: Math.round(shape.top)
+                });
                 refinedCanvas.add(shape);
             }
         }
@@ -271,6 +327,8 @@
             container.innerHTML = interpretedElements.map(elem => `
                 <div class="element-preview">
                     <strong>${elem.type}</strong>
+                    ${elem.selected !== undefined ? `<br>Seleccionado: ${elem.selected}` : ''}
+                    ${elem.checked !== undefined ? `<br>Marcado: ${elem.checked}` : ''}
                     <br>Posición: (${Math.round(elem.bounds.left)}, ${Math.round(elem.bounds.top)})
                     <br>Tamaño: ${Math.round(elem.bounds.width)}x${Math.round(elem.bounds.height)}
                 </div>
