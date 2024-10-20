@@ -128,54 +128,91 @@
             }, 3000);
         }
 
-        // Función mejorada para detectar formas
-        function interpretElement(path) {
+        function addRefinedShape(path, interpreted) {
             const bounds = path.getBoundingRect();
-            const width = bounds.width;
-            const height = bounds.height;
-            
-            // Detectar círculo (radio button)
-            if (Math.abs(width - height) < 10 && width < 50) {
-                const circularity = calculateCircularity(path);
-                if (circularity > 0.7) {
-                    return { 
-                        type: 'radio button',
-                        bounds: bounds,
-                        selected: false // Podríamos detectar si tiene un punto interno
-                    };
+            let newShape;
+        
+            switch(interpreted.type) {
+                case 'radio button':
+                    newShape = new fabric.Circle({
+                        left: bounds.left,
+                        top: bounds.top,
+                        radius: bounds.width / 2,
+                        stroke: '#000000',
+                        strokeWidth: 2,
+                        fill: 'transparent'
+                    });
+                    break;
+                case 'checkbox':
+                    newShape = new fabric.Rect({
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                        stroke: '#000000',
+                        strokeWidth: 2,
+                        fill: 'transparent'
+                    });
+                    break;
+                case 'input/button':
+                    newShape = new fabric.Rect({
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                        stroke: '#000000',
+                        strokeWidth: 2,
+                        fill: 'transparent',
+                        rx: 4,
+                        ry: 4
+                    });
+                    break;
+                case 'label':
+                case 'header':
+                    newShape = new fabric.Text(interpreted.type, {
+                        left: bounds.left,
+                        top: bounds.top,
+                        fontSize: interpreted.type === 'header' ? 18 : 14,
+                        fill: '#000000'
+                    });
+                    break;
+            }
+        
+            if (newShape) {
+                refinedCanvas.add(newShape);
+            }
+        }
+
+        // Función mejorada para detectar formas
+        function interpretWireframe() {
+            // Limpiar el canvas refinado
+            refinedCanvas.clear();
+            refinedCanvas.backgroundColor = 'white';
+        
+            const objects = drawingCanvas.getObjects();
+            const interpretedElements = [];
+        
+            objects.forEach(obj => {
+                if (obj.type === 'path') {
+                    const interpreted = interpretElement(obj);
+                    interpretedElements.push(interpreted);
+                    addRefinedShape(obj, interpreted);
                 }
-            }
-            
-            // Detectar checkbox
-            if (Math.abs(width - height) < 10 && width < 50) {
-                const squareness = calculateSquareness(path);
-                if (squareness > 0.8) {
-                    return { 
-                        type: 'checkbox',
-                        bounds: bounds,
-                        checked: false // Podríamos detectar si tiene una marca dentro
-                    };
-                }
-            }
-            
-            // Detectar input/botón
-            if (width > height * 1.5 && height < 60) {
-                return { 
-                    type: 'input/button',
-                    bounds: bounds
-                };
-            }
-            
-            // Detectar texto/etiqueta
-            if (height < 30) {
-                return { 
-                    type: 'label',
-                    bounds: bounds,
-                    isHeader: false // Por ahora siempre false
-                };
-            }
-            
-            return { type: 'unknown', bounds: bounds };
+            });
+        
+            // Actualizar el panel lateral
+            const container = document.getElementById('interpretedElements');
+            container.innerHTML = interpretedElements.map(elem => `
+                <div class="element-preview">
+                    <strong>${elem.type}</strong>
+                    ${elem.width ? `<br>Dimensiones: ${Math.round(elem.width)}x${Math.round(elem.height)}` : ''}
+                </div>
+            `).join('');
+        
+            // Renderizar el canvas refinado
+            refinedCanvas.renderAll();
+        
+            showMessage('¡Wireframe interpretado! Revisa el canvas derecho y el panel lateral para ver los elementos detectados.');
         }
 
         // Funciones auxiliares para mejorar la detección
