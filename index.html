@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creador de Wireframes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .canvas-container {
+            margin: 20px 0;
+            border: 2px solid #eee;
+            border-radius: 4px;
+        }
+        .tools {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            background: #0066ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0052cc;
+        }
+        button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Creador de Wireframes</h1>
+        <div class="tools">
+            <button onclick="toggleDrawingMode()">Modo Dibujo</button>
+            <button onclick="clearCanvas()" class="secondary">Limpiar</button>
+            <button onclick="interpretWireframe()">Interpretar</button>
+            <button onclick="downloadWireframe()" class="secondary">Descargar</button>
+        </div>
+        <canvas id="wireframe-canvas" width="800" height="600"></canvas>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Inicializar el canvas
+        const canvas = new fabric.Canvas('wireframe-canvas', {
+            isDrawingMode: true,
+            backgroundColor: 'white'
+        });
+
+        // Configurar el pincel
+        canvas.freeDrawingBrush.width = 2;
+        canvas.freeDrawingBrush.color = "#000000";
+
+        // Variables de control
+        let isDrawingMode = true;
+
+        // Funciones de control
+        function toggleDrawingMode() {
+            isDrawingMode = !isDrawingMode;
+            canvas.isDrawingMode = isDrawingMode;
+        }
+
+        function clearCanvas() {
+            canvas.clear();
+            canvas.backgroundColor = 'white';
+            canvas.renderAll();
+            hideOutput();
+        }
+
+        function hideOutput() {
+            document.getElementById('output').style.display = 'none';
+        }
+
+        // Función para interpretar formas
+        function interpretWireframe() {
+            const objects = canvas.getObjects();
+            const interpretedElements = objects.map(obj => {
+                const bounds = obj.getBoundingRect();
+                let type = 'unknown';
+                
+                // Interpretar el tipo de elemento basado en sus dimensiones
+                if (bounds.width < 50 && bounds.height < 50) {
+                    type = 'checkbox';
+                } else if (bounds.width > bounds.height * 3) {
+                    type = 'dropdown';
+                } else if (bounds.width > bounds.height * 2) {
+                    type = 'text input';
+                } else if (bounds.width > 100 && bounds.height > 100) {
+                    type = 'content area';
+                }
+
+                return {
+                    type,
+                    x: Math.round(bounds.left),
+                    y: Math.round(bounds.top),
+                    width: Math.round(bounds.width),
+                    height: Math.round(bounds.height)
+                };
+            });
+
+            // Mostrar resultados
+            const output = document.getElementById('output');
+            output.style.display = 'block';
+            output.innerHTML = `
+                <h3>Elementos Detectados:</h3>
+                <pre>${JSON.stringify(interpretedElements, null, 2)}</pre>
+            `;
+        }
+
+        // Función para descargar el wireframe
+        function downloadWireframe() {
+            const dataURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
+            const link = document.createElement('a');
+            link.download = 'wireframe.png';
+            link.href = dataURL;
+            link.click();
+        }
+
+        // Mejorar la detección de formas después de dibujar
+        canvas.on('path:created', function(e) {
+            const path = e.path;
+            const bounds = path.getBoundingRect();
+            
+            // Si el trazo parece ser un rectángulo
+            if (isRectangular(bounds, path)) {
+                const rect = new fabric.Rect({
+                    left: bounds.left,
+                    top: bounds.top,
+                    width: bounds.width,
+                    height: bounds.height,
+                    stroke: '#000000',
+                    strokeWidth: 2,
+                    fill: 'transparent'
+                });
+                canvas.remove(path);
+                canvas.add(rect);
+                canvas.renderAll();
+            }
+        });
+
+        function isRectangular(bounds, path) {
+            // Lógica simple para detectar si un trazo se parece a un rectángulo
+            const ratio = bounds.width / bounds.height;
+            return ratio > 0.5 && ratio < 2;
+        }
+    </script>
+</body>
+</html>
