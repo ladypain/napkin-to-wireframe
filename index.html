@@ -1,357 +1,70 @@
-<!DOCTYPE html>
-<html lang="es">
-<!-- [Head y estilos se mantienen igual...] -->
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes Dual</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <style>
-        /* [Estilos anteriores se mantienen igual...] */
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .layout {
-            display: flex;
-            gap: 20px;
-        }
-        
-        .canvas-container {
-            flex: 1;
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 8px;
-        }
-        
-        .canvas-area {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .canvas-wrapper {
-            display: flex;
-            gap: 20px;
-        }
-        
-        .canvas-section {
-            flex: 1;
-        }
-        
-        .canvas-title {
-            text-align: center;
-            margin-bottom: 10px;
-            color: #666;
-        }
-        
-        .tools {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            background: #2196f3;
-            color: white;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        button:hover {
-            background: #1976d2;
-        }
-        
-        button.secondary {
-            background: #90a4ae;
-        }
-        
-        button.secondary:hover {
-            background: #78909c;
-        }
-        
-        .sidebar {
-            width: 300px;
-            padding: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
-        }
-        
-        .message {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <!-- [El HTML se mantiene igual...] -->
-    <div class="container">
-        <!-- [Contenido anterior...] -->
-    </div>
+// Inicializar ambos canvas
+const drawingCanvas = new fabric.Canvas('drawing-canvas', {
+    isDrawingMode: true,
+    backgroundColor: 'white'
+});
 
-    <script>
-        // Inicializar ambos canvas
-        const drawingCanvas = new fabric.Canvas('drawing-canvas', {
-            isDrawingMode: true,
-            backgroundColor: 'white'
-        });
-        
-        const refinedCanvas = new fabric.Canvas('refined-canvas', {
-            isDrawingMode: false,
-            backgroundColor: 'white'
-        });
+const refinedCanvas = new fabric.Canvas('refined-canvas', {
+    isDrawingMode: false,
+    backgroundColor: 'white'
+});
 
-        // Configurar el pincel
-        drawingCanvas.freeDrawingBrush.width = 2;
-        drawingCanvas.freeDrawingBrush.color = "#000000";
+// Configurar el pincel
+drawingCanvas.freeDrawingBrush.width = 2;
+drawingCanvas.freeDrawingBrush.color = "#000000";
 
-        let isDrawingMode = true;
+let isDrawingMode = true;
 
-        function showMessage(text, isSuccess = true) {
-            const message = document.getElementById('message');
-            message.style.display = 'block';
-            message.style.background = isSuccess ? '#e8f5e9' : '#ffebee';
-            message.style.color = isSuccess ? '#2e7d32' : '#c62828';
-            message.textContent = text;
-            setTimeout(() => {
-                message.style.display = 'none';
-            }, 3000);
-        }
+function showMessage(text, isSuccess = true) {
+    const message = document.getElementById('message');
+    message.style.display = 'block';
+    message.style.background = isSuccess ? '#e8f5e9' : '#ffebee';
+    message.style.color = isSuccess ? '#2e7d32' : '#c62828';
+    message.textContent = text;
+    setTimeout(() => {
+        message.style.display = 'none';
+    }, 3000);
+}
 
-        function addRefinedShape(path, interpreted) {
-            const bounds = path.getBoundingRect();
-            let newShape;
-        
-            switch(interpreted.type) {
-                case 'radio button':
-                    newShape = new fabric.Circle({
-                        left: bounds.left,
-                        top: bounds.top,
-                        radius: bounds.width / 2,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent'
-                    });
-                    break;
-                case 'checkbox':
-                    newShape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent'
-                    });
-                    break;
-                case 'input/button':
-                    newShape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent',
-                        rx: 4,
-                        ry: 4
-                    });
-                    break;
-                case 'label':
-                case 'header':
-                    newShape = new fabric.Text(interpreted.type, {
-                        left: bounds.left,
-                        top: bounds.top,
-                        fontSize: interpreted.type === 'header' ? 18 : 14,
-                        fill: '#000000'
-                    });
-                    break;
-            }
-        
-            if (newShape) {
-                refinedCanvas.add(newShape);
-            }
-        }
+function interpretElement(path) {
+    const bounds = path.getBoundingRect();
+    
+    if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
+        return { type: 'radio button', bounds: bounds };
+    }
+    
+    if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
+        return { type: 'checkbox', bounds: bounds };
+    }
+    
+    if (bounds.width > bounds.height * 1.5) {
+        return { type: 'input/button', bounds: bounds };
+    }
+    
+    if (bounds.height < 30) {
+        return { type: 'label', bounds: bounds };
+    }
+    
+    return { type: 'unknown', bounds: bounds };
+}
 
-        // Función mejorada para detectar formas
-        function interpretWireframe() {
-            // Limpiar el canvas refinado
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-        
-            const objects = drawingCanvas.getObjects();
-            const interpretedElements = [];
-        
-            objects.forEach(obj => {
-                if (obj.type === 'path') {
-                    const interpreted = interpretElement(obj);
-                    interpretedElements.push(interpreted);
-                    addRefinedShape(obj, interpreted);
-                }
+function drawRefinedShape(interpretation) {
+    let shape;
+    const bounds = interpretation.bounds;
+
+    switch(interpretation.type) {
+        case 'radio button':
+            shape = new fabric.Circle({
+                left: bounds.left,
+                top: bounds.top,
+                radius: Math.min(bounds.width, bounds.height) / 2,
+                stroke: '#000000',
+                strokeWidth: 2,
+                fill: 'transparent'
             });
-        
-            // Actualizar el panel lateral
-            const container = document.getElementById('interpretedElements');
-            container.innerHTML = interpretedElements.map(elem => `
-                <div class="element-preview">
-                    <strong>${elem.type}</strong>
-                    ${elem.width ? `<br>Dimensiones: ${Math.round(elem.width)}x${Math.round(elem.height)}` : ''}
-                </div>
-            `).join('');
-        
-            // Renderizar el canvas refinado
-            refinedCanvas.renderAll();
-        
-            showMessage('¡Wireframe interpretado! Revisa el canvas derecho y el panel lateral para ver los elementos detectados.');
-        }
+            break;
 
-        // Funciones auxiliares para mejorar la detección
-        function calculateCircularity(path) {
-            // Implementación básica - podría mejorarse
-            const bounds = path.getBoundingRect();
-            const area = bounds.width * bounds.height;
-            const perimeter = 2 * (bounds.width + bounds.height);
-            return (4 * Math.PI * area) / (perimeter * perimeter);
-        }
-
-        function calculateSquareness(path) {
-            // Implementación básica - podría mejorarse
-            const bounds = path.getBoundingRect();
-            return Math.min(bounds.width, bounds.height) / Math.max(bounds.width, bounds.height);
-        }
-
-        // Función mejorada para dibujar formas refinadas
-        function drawRefinedShape(interpretation) {
-            let shape;
-            const bounds = interpretation.bounds;
-
-            switch(interpretation.type) {
-                case 'radio button':
-                    shape = new fabric.Circle({
-                        left: bounds.left,
-                        top: bounds.top,
-                        radius: Math.min(bounds.width, bounds.height) / 2,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: interpretation.selected ? '#dddddd' : 'transparent'
-                    });
-                    break;
-
-                case 'checkbox':
-                    shape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: interpretation.checked ? '#dddddd' : 'transparent'
-                    });
-                    break;
-
-                case 'input/button':
-                    shape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent',
-                        rx: 4,
-                        ry: 4
-                    });
-                    break;
-
-                case 'label':
-                    // Para las etiquetas, mantenemos el path original pero lo estilizamos
-                    shape = new fabric.Text(interpretation.isHeader ? 'Header' : 'Label', {
-                        left: bounds.left,
-                        top: bounds.top,
-                        fontSize: interpretation.isHeader ? 18 : 14,
-                        fill: '#000000'
-                    });
-                    break;
-            }
-
-            if (shape) {
-                refinedCanvas.add(shape);
-            }
-        }
-
-        function interpretWireframe() {
-            // Limpiar el canvas refinado
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-
-            // Obtener y procesar cada objeto del canvas de dibujo
-            const objects = drawingCanvas.getObjects();
-            const interpretedElements = [];
-
-            objects.forEach(obj => {
-                if (obj.type === 'path') {
-                    const interpreted = interpretElement(obj);
-                    interpretedElements.push(interpreted);
-                    drawRefinedShape(interpreted);
-                }
-            });
-
-            // Actualizar el panel lateral
-            const container = document.getElementById('interpretedElements');
-            container.innerHTML = interpretedElements.map(elem => `
-                <div class="element-preview">
-                    <strong>${elem.type}</strong>
-                    ${elem.bounds ? `<br>Posición: (${Math.round(elem.bounds.left)}, ${Math.round(elem.bounds.top)})` : ''}
-                    ${elem.bounds ? `<br>Tamaño: ${Math.round(elem.bounds.width)}x${Math.round(elem.bounds.height)}` : ''}
-                </div>
-            `).join('');
-
-            refinedCanvas.renderAll();
-            showMessage('¡Wireframe interpretado! Revisa el canvas derecho para ver el resultado.');
-        }
-
-        // El resto de funciones auxiliares se mantienen igual
-        function toggleDrawingMode() {
-            isDrawingMode = !isDrawingMode;
-            drawingCanvas.isDrawingMode = isDrawingMode;
-            showMessage(isDrawingMode ? 'Modo dibujo activado' : 'Modo selección activado');
-        }
-
-        function clearCanvases() {
-            drawingCanvas.clear();
-            drawingCanvas.backgroundColor = 'white';
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-            document.getElementById('interpretedElements').innerHTML = '';
-            showMessage('Canvas limpiados');
-        }
-
-        function downloadWireframe() {
-            const dataURL = refinedCanvas.toDataURL({
-                format: 'png',
-                quality: 1
-            });
-            const link = document.createElement('a');
-            link.download = 'wireframe-refinado.png';
-            link.href = dataURL;
-            link.click();
-            showMessage('Wireframe refinado descargado');
-        }
-
-        // Evento para el dibujo
-        drawingCanvas.on('path:created', function(e) {
-            console.log('Nuevo elemento dibujado');
-        });
-    </script>
-</body>
-</html>
+        case 'checkbox':
+            shape = new fabric.Rect({
+                left: bounds.left,
+                top: bounds.t
