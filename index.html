@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes</title>
+    <title>Creador de Wireframes Mejorado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
@@ -62,19 +62,70 @@
 
         function interpretElement(path) {
             const bounds = path.getBoundingRect();
+            const circularity = calculateCircularity(path);
+            
+            if (circularity > 0.8 && bounds.width < 50) {
+                return { type: 'radio', checked: hasInnerDot(path), bounds: bounds };
+            }
+            
             if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
-                return { type: 'checkbox', bounds: bounds };
+                return { type: 'checkbox', checked: hasInnerMark(path), bounds: bounds };
             }
-            if (bounds.width > bounds.height * 1.5) {
-                return { type: 'input/button', bounds: bounds };
+            
+            if (bounds.width > bounds.height * 1.5 && bounds.height > 20) {
+                return { type: 'input', bounds: bounds };
             }
+            
+            if (bounds.height < 30 && bounds.width > 30) {
+                return { type: 'label', bounds: bounds };
+            }
+            
             return { type: 'unknown', bounds: bounds };
+        }
+
+        function calculateCircularity(path) {
+            const bounds = path.getBoundingRect();
+            const area = bounds.width * bounds.height;
+            const perimeter = path.length;
+            return (4 * Math.PI * area) / (perimeter * perimeter);
+        }
+
+        function hasInnerDot(path) {
+            const center = path.getCenterPoint();
+            const points = path.path.filter(p => p[0] === 'L').map(p => ({ x: p[1], y: p[2] }));
+            return points.some(p => 
+                Math.sqrt(Math.pow(p.x - center.x, 2) + Math.pow(p.y - center.y, 2)) < path.width / 4
+            );
+        }
+
+        function hasInnerMark(path) {
+            return path.complexity() > 10;
         }
 
         function drawRefinedShape(interpretation) {
             const bounds = interpretation.bounds;
             let shape;
+
             switch(interpretation.type) {
+                case 'radio':
+                    shape = new fabric.Circle({
+                        left: bounds.left,
+                        top: bounds.top,
+                        radius: bounds.width / 2,
+                        stroke: '#000000',
+                        strokeWidth: 2,
+                        fill: 'transparent'
+                    });
+                    if (interpretation.checked) {
+                        const dot = new fabric.Circle({
+                            left: bounds.left + bounds.width / 4,
+                            top: bounds.top + bounds.height / 4,
+                            radius: bounds.width / 4,
+                            fill: '#000000'
+                        });
+                        refinedCanvas.add(dot);
+                    }
+                    break;
                 case 'checkbox':
                     shape = new fabric.Rect({
                         left: bounds.left,
@@ -85,8 +136,17 @@
                         strokeWidth: 2,
                         fill: 'transparent'
                     });
+                    if (interpretation.checked) {
+                        const check = new fabric.Text('✓', {
+                            left: bounds.left + bounds.width / 4,
+                            top: bounds.top,
+                            fontSize: bounds.height,
+                            fill: '#000000'
+                        });
+                        refinedCanvas.add(check);
+                    }
                     break;
-                case 'input/button':
+                case 'input':
                     shape = new fabric.Rect({
                         left: bounds.left,
                         top: bounds.top,
@@ -99,7 +159,16 @@
                         ry: 4
                     });
                     break;
+                case 'label':
+                    shape = new fabric.Text('Label', {
+                        left: bounds.left,
+                        top: bounds.top,
+                        fontSize: 14,
+                        fill: '#000000'
+                    });
+                    break;
             }
+
             if (shape) {
                 refinedCanvas.add(shape);
             }
@@ -147,7 +216,6 @@
             showMessage('Wireframe descargado');
         }
 
-        // Inicializar los canvas cuando se carga la página
         window.onload = initializeCanvases;
     </script>
 </body>
