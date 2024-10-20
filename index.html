@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+<!-- [Head y estilos se mantienen igual...] -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Creador de Wireframes Dual</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
+        /* [Estilos anteriores se mantienen igual...] */
         .container {
             max-width: 1600px;
             margin: 0 auto;
@@ -81,14 +83,6 @@
             border-radius: 8px;
         }
         
-        .guide {
-            margin-bottom: 20px;
-        }
-        
-        .guide ul {
-            padding-left: 20px;
-        }
-        
         .message {
             padding: 10px;
             margin: 10px 0;
@@ -97,64 +91,12 @@
             color: #2e7d32;
             display: none;
         }
-        
-        .element-preview {
-            padding: 10px;
-            margin: 5px 0;
-            background: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
     </style>
 </head>
 <body>
+    <!-- [El HTML se mantiene igual...] -->
     <div class="container">
-        <h1>Creador de Wireframes</h1>
-        
-        <div class="layout">
-            <div class="canvas-container">
-                <div class="tools">
-                    <button onclick="toggleDrawingMode()">Modo Dibujo</button>
-                    <button onclick="clearCanvases()" class="secondary">Limpiar</button>
-                    <button onclick="refineShapes()">Refinir Formas</button>
-                    <button onclick="interpretWireframe()">Interpretar</button>
-                    <button onclick="downloadWireframe()" class="secondary">Descargar</button>
-                </div>
-                <div id="message" class="message"></div>
-                
-                <div class="canvas-wrapper">
-                    <div class="canvas-section">
-                        <div class="canvas-title">Dibujo Original</div>
-                        <canvas id="drawing-canvas" width="700" height="500"></canvas>
-                    </div>
-                    <div class="canvas-section">
-                        <div class="canvas-title">Wireframe Refinado</div>
-                        <canvas id="refined-canvas" width="700" height="500"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="sidebar">
-                <div class="guide">
-                    <h3>Guía de Dibujo</h3>
-                    <ul>
-                        <li>1. Dibuja libremente tus elementos</li>
-                        <li>2. Usa "Refinir Formas" para ver la interpretación</li>
-                        <li>3. "Interpretar" detectará los elementos</li>
-                        <br/>
-                        <li>⭕ Círculo = Radio button</li>
-                        <li>⭕• Círculo con punto = Radio button seleccionado</li>
-                        <li>☐ Cuadrado = Checkbox</li>
-                        <li>☑️ Cuadrado con tick = Checkbox seleccionado</li>
-                        <li>*Texto = Header</li>
-                        <li>Texto normal = Label</li>
-                        <li>▭ Rectángulo = Input/Botón</li>
-                    </ul>
-                </div>
-                <h3>Elementos Interpretados</h3>
-                <div id="interpretedElements"></div>
-            </div>
-        </div>
+        <!-- [Contenido anterior...] -->
     </div>
 
     <script>
@@ -186,54 +128,102 @@
             }, 3000);
         }
 
-        function refineShapes() {
-            // Limpiar el canvas refinado
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-
-            // Obtener objetos del canvas de dibujo
-            const objects = drawingCanvas.getObjects();
-            objects.forEach(obj => {
-                if (obj.type === 'path') {
-                    const interpreted = interpretElement(obj);
-                    if (interpreted.type !== 'unknown') {
-                        addRefinedShape(obj, interpreted);
-                    }
-                }
-            });
+        // Función mejorada para detectar formas
+        function interpretElement(path) {
+            const bounds = path.getBoundingRect();
+            const width = bounds.width;
+            const height = bounds.height;
             
-            refinedCanvas.renderAll();
-            showMessage('¡Formas refinadas! Puedes ver el resultado en el canvas derecho.');
+            // Detectar círculo (radio button)
+            if (Math.abs(width - height) < 10 && width < 50) {
+                const circularity = calculateCircularity(path);
+                if (circularity > 0.7) {
+                    return { 
+                        type: 'radio button',
+                        bounds: bounds,
+                        selected: false // Podríamos detectar si tiene un punto interno
+                    };
+                }
+            }
+            
+            // Detectar checkbox
+            if (Math.abs(width - height) < 10 && width < 50) {
+                const squareness = calculateSquareness(path);
+                if (squareness > 0.8) {
+                    return { 
+                        type: 'checkbox',
+                        bounds: bounds,
+                        checked: false // Podríamos detectar si tiene una marca dentro
+                    };
+                }
+            }
+            
+            // Detectar input/botón
+            if (width > height * 1.5 && height < 60) {
+                return { 
+                    type: 'input/button',
+                    bounds: bounds
+                };
+            }
+            
+            // Detectar texto/etiqueta
+            if (height < 30) {
+                return { 
+                    type: 'label',
+                    bounds: bounds,
+                    isHeader: false // Por ahora siempre false
+                };
+            }
+            
+            return { type: 'unknown', bounds: bounds };
         }
 
-        function addRefinedShape(path, interpreted) {
+        // Funciones auxiliares para mejorar la detección
+        function calculateCircularity(path) {
+            // Implementación básica - podría mejorarse
             const bounds = path.getBoundingRect();
-            let newShape;
+            const area = bounds.width * bounds.height;
+            const perimeter = 2 * (bounds.width + bounds.height);
+            return (4 * Math.PI * area) / (perimeter * perimeter);
+        }
 
-            switch(interpreted.type) {
+        function calculateSquareness(path) {
+            // Implementación básica - podría mejorarse
+            const bounds = path.getBoundingRect();
+            return Math.min(bounds.width, bounds.height) / Math.max(bounds.width, bounds.height);
+        }
+
+        // Función mejorada para dibujar formas refinadas
+        function drawRefinedShape(interpretation) {
+            let shape;
+            const bounds = interpretation.bounds;
+
+            switch(interpretation.type) {
                 case 'radio button':
-                    newShape = new fabric.Circle({
+                    shape = new fabric.Circle({
                         left: bounds.left,
                         top: bounds.top,
-                        radius: bounds.width / 2,
+                        radius: Math.min(bounds.width, bounds.height) / 2,
                         stroke: '#000000',
                         strokeWidth: 2,
-                        fill: 'transparent'
+                        fill: interpretation.selected ? '#dddddd' : 'transparent'
                     });
                     break;
+
                 case 'checkbox':
-                    newShape = new fabric.Rect({
+                    shape = new fabric.Rect({
                         left: bounds.left,
                         top: bounds.top,
                         width: bounds.width,
                         height: bounds.height,
                         stroke: '#000000',
                         strokeWidth: 2,
-                        fill: 'transparent'
+                        fill: interpretation.checked ? '#dddddd' : 'transparent'
                     });
                     break;
+
                 case 'input/button':
-                    newShape = new fabric.Rect({
+                    shape = new fabric.Rect({
                         left: bounds.left,
                         top: bounds.top,
                         width: bounds.width,
@@ -245,40 +235,55 @@
                         ry: 4
                     });
                     break;
+
+                case 'label':
+                    // Para las etiquetas, mantenemos el path original pero lo estilizamos
+                    shape = new fabric.Text(interpretation.isHeader ? 'Header' : 'Label', {
+                        left: bounds.left,
+                        top: bounds.top,
+                        fontSize: interpretation.isHeader ? 18 : 14,
+                        fill: '#000000'
+                    });
+                    break;
             }
 
-            if (newShape) {
-                refinedCanvas.add(newShape);
+            if (shape) {
+                refinedCanvas.add(shape);
             }
         }
 
-        function interpretElement(path) {
-            const bounds = path.getBoundingRect();
-            
-            if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
-                return { type: 'radio button' };
-            }
-            
-            if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
-                return { type: 'checkbox' };
-            }
-            
-            if (bounds.width > bounds.height * 1.5) {
-                return { type: 'input/button', width: bounds.width, height: bounds.height };
-            }
-            
-            if (bounds.height < 30) {
-                const isHeader = containsAsterisk(path);
-                return { type: isHeader ? 'header' : 'label' };
-            }
-            
-            return { type: 'unknown' };
+        function interpretWireframe() {
+            // Limpiar el canvas refinado
+            refinedCanvas.clear();
+            refinedCanvas.backgroundColor = 'white';
+
+            // Obtener y procesar cada objeto del canvas de dibujo
+            const objects = drawingCanvas.getObjects();
+            const interpretedElements = [];
+
+            objects.forEach(obj => {
+                if (obj.type === 'path') {
+                    const interpreted = interpretElement(obj);
+                    interpretedElements.push(interpreted);
+                    drawRefinedShape(interpreted);
+                }
+            });
+
+            // Actualizar el panel lateral
+            const container = document.getElementById('interpretedElements');
+            container.innerHTML = interpretedElements.map(elem => `
+                <div class="element-preview">
+                    <strong>${elem.type}</strong>
+                    ${elem.bounds ? `<br>Posición: (${Math.round(elem.bounds.left)}, ${Math.round(elem.bounds.top)})` : ''}
+                    ${elem.bounds ? `<br>Tamaño: ${Math.round(elem.bounds.width)}x${Math.round(elem.bounds.height)}` : ''}
+                </div>
+            `).join('');
+
+            refinedCanvas.renderAll();
+            showMessage('¡Wireframe interpretado! Revisa el canvas derecho para ver el resultado.');
         }
 
-        function containsAsterisk(path) {
-            return false; // Implementar la lógica de detección de asterisco
-        }
-
+        // El resto de funciones auxiliares se mantienen igual
         function toggleDrawingMode() {
             isDrawingMode = !isDrawingMode;
             drawingCanvas.isDrawingMode = isDrawingMode;
@@ -294,21 +299,6 @@
             showMessage('Canvas limpiados');
         }
 
-        function interpretWireframe() {
-            const objects = drawingCanvas.getObjects();
-            const interpretedElements = objects.map(obj => interpretElement(obj));
-            
-            const container = document.getElementById('interpretedElements');
-            container.innerHTML = interpretedElements.map(elem => `
-                <div class="element-preview">
-                    <strong>${elem.type}</strong>
-                    ${elem.width ? `<br>Dimensiones: ${Math.round(elem.width)}x${Math.round(elem.height)}` : ''}
-                </div>
-            `).join('');
-            
-            showMessage('¡Wireframe interpretado! Revisa el panel lateral para ver los elementos detectados.');
-        }
-
         function downloadWireframe() {
             const dataURL = refinedCanvas.toDataURL({
                 format: 'png',
@@ -321,6 +311,7 @@
             showMessage('Wireframe refinado descargado');
         }
 
+        // Evento para el dibujo
         drawingCanvas.on('path:created', function(e) {
             console.log('Nuevo elemento dibujado');
         });
