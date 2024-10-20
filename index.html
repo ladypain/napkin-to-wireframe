@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes Mejorado</title>
+    <title>Creador de Wireframes</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
@@ -60,39 +60,53 @@
             setTimeout(() => message.style.display = 'none', 3000);
         }
 
+        function interpretWireframe() {
+            console.log("Iniciando interpretación del wireframe");
+            refinedCanvas.clear();
+            refinedCanvas.backgroundColor = 'white';
+            const objects = drawingCanvas.getObjects();
+            console.log(`Número de objetos encontrados: ${objects.length}`);
+
+            objects.forEach((obj, index) => {
+                if (obj.type === 'path') {
+                    console.log(`Interpretando objeto ${index + 1}`);
+                    const interpreted = interpretElement(obj);
+                    console.log(`Objeto interpretado como: ${interpreted.type}`);
+                    drawRefinedShape(interpreted);
+                }
+            });
+
+            refinedCanvas.renderAll();
+            console.log("Interpretación finalizada");
+            showMessage('Wireframe interpretado');
+        }
+
         function interpretElement(path) {
             const bounds = path.getBoundingRect();
+            console.log(`Analizando elemento: Ancho=${bounds.width}, Alto=${bounds.height}`);
             
             if (hasInnerDot(path)) {
+                console.log("Detectado radio button");
                 return { type: 'radio', checked: true, bounds: bounds };
             }
             
             if (isSquarish(path)) {
+                console.log("Detectado checkbox");
                 return { type: 'checkbox', checked: hasInnerMark(path), bounds: bounds };
             }
             
             if (bounds.width > bounds.height * 1.5 && bounds.height > 20) {
+                console.log("Detectado input");
                 return { type: 'input', bounds: bounds };
             }
             
             if (bounds.height < 30 && bounds.width > 30) {
+                console.log("Detectado label");
                 return { type: 'label', bounds: bounds };
             }
             
+            console.log("Elemento no reconocido");
             return { type: 'unknown', bounds: bounds };
-        }
-
-        function isCircularish(path) {
-            const bounds = path.getBoundingRect();
-            const circularity = calculateCircularity(path);
-            return circularity > 0.7 && Math.abs(bounds.width - bounds.height) < 10;
-        }
-        
-        function calculateCircularity(path) {
-            const bounds = path.getBoundingRect();
-            const area = bounds.width * bounds.height;
-            const perimeter = path.length;
-            return (4 * Math.PI * area) / (perimeter * perimeter);
         }
 
         function hasInnerDot(path) {
@@ -104,7 +118,7 @@
                 p.x === bounds.left || p.x === bounds.left + bounds.width ||
                 p.y === bounds.top || p.y === bounds.top + bounds.height
             );
-        
+
             // Buscar puntos que estén dentro de la forma pero no en el borde
             const innerPoints = points.filter(p => {
                 const isOnEdge = edgePoints.some(ep => 
@@ -114,34 +128,43 @@
                        p.x > bounds.left && p.x < bounds.left + bounds.width &&
                        p.y > bounds.top && p.y < bounds.top + bounds.height;
             });
-        
+
             // Verificar si hay un grupo pequeño de puntos internos
             return innerPoints.length >= 3 && innerPoints.length <= 20;
         }
 
+        function isSquarish(path) {
+            const bounds = path.getBoundingRect();
+            const aspectRatio = bounds.width / bounds.height;
+            return Math.abs(aspectRatio - 1) < 0.2 && bounds.width < 50 && bounds.height < 50;
+        }
+
         function hasInnerMark(path) {
-            return path.complexity() > 10;
+            const complexity = path.complexity();
+            return complexity > 5 && complexity < 20;
         }
 
         function drawRefinedShape(interpretation) {
+            console.log(`Dibujando forma refinada: ${interpretation.type}`);
             const bounds = interpretation.bounds;
+            const standardSize = 20;
             let shape;
-        
+
             switch(interpretation.type) {
                 case 'radio':
                     shape = new fabric.Circle({
                         left: bounds.left,
                         top: bounds.top,
-                        radius: Math.min(bounds.width, bounds.height) / 2,
+                        radius: standardSize / 2,
                         stroke: '#000000',
                         strokeWidth: 2,
                         fill: 'transparent'
                     });
                     if (interpretation.checked) {
                         const dot = new fabric.Circle({
-                            left: bounds.left + bounds.width / 4,
-                            top: bounds.top + bounds.height / 4,
-                            radius: Math.min(bounds.width, bounds.height) / 4,
+                            left: bounds.left + standardSize / 4,
+                            top: bounds.top + standardSize / 4,
+                            radius: standardSize / 4,
                             fill: '#000000'
                         });
                         refinedCanvas.add(dot);
@@ -151,17 +174,17 @@
                     shape = new fabric.Rect({
                         left: bounds.left,
                         top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
+                        width: standardSize,
+                        height: standardSize,
                         stroke: '#000000',
                         strokeWidth: 2,
                         fill: 'transparent'
                     });
                     if (interpretation.checked) {
                         const check = new fabric.Text('✓', {
-                            left: bounds.left + bounds.width / 4,
-                            top: bounds.top,
-                            fontSize: bounds.height,
+                            left: bounds.left + 2,
+                            top: bounds.top - 2,
+                            fontSize: standardSize,
                             fill: '#000000'
                         });
                         refinedCanvas.add(check);
@@ -191,22 +214,11 @@
             }
 
             if (shape) {
+                console.log(`Añadiendo forma al canvas refinado: ${interpretation.type}`);
                 refinedCanvas.add(shape);
+            } else {
+                console.log(`No se pudo crear una forma para: ${interpretation.type}`);
             }
-        }
-
-        function interpretWireframe() {
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-            const objects = drawingCanvas.getObjects();
-            objects.forEach(obj => {
-                if (obj.type === 'path') {
-                    const interpreted = interpretElement(obj);
-                    drawRefinedShape(interpreted);
-                }
-            });
-            refinedCanvas.renderAll();
-            showMessage('Wireframe interpretado');
         }
 
         function toggleDrawingMode() {
