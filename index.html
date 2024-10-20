@@ -1,18 +1,94 @@
 <!DOCTYPE html>
 <html lang="es">
-<!-- [El head permanece igual...] -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes Mejorado</title>
+    <title>Creador de Wireframes Dual</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        /* [Estilos anteriores permanecen igual...] */
-        .control-group {
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .layout {
             display: flex;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .canvas-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .canvas-wrapper {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .canvas-section {
+            flex: 1;
+        }
+        
+        .canvas-title {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        
+        .tools {
+            display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-bottom: 10px;
         }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #2196f3;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #1976d2;
+        }
+        
+        button.secondary {
+            background: #90a4ae;
+        }
+        
+        button.secondary:hover {
+            background: #78909c;
+        }
+        
+        .sidebar {
+            width: 300px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .guide {
+            margin-bottom: 20px;
+        }
+        
+        .guide ul {
+            padding-left: 20px;
+        }
+        
         .message {
             padding: 10px;
             margin: 10px 0;
@@ -21,6 +97,14 @@
             color: #2e7d32;
             display: none;
         }
+        
+        .element-preview {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -28,20 +112,26 @@
         <h1>Creador de Wireframes</h1>
         
         <div class="layout">
-            <div class="canvas-area">
+            <div class="canvas-container">
                 <div class="tools">
-                    <div class="control-group">
-                        <button onclick="toggleDrawingMode()">Modo Dibujo</button>
-                        <button onclick="clearCanvas()" class="secondary">Limpiar</button>
-                    </div>
-                    <div class="control-group">
-                        <button onclick="refineShapes()" class="secondary">Refinir Formas</button>
-                        <button onclick="interpretWireframe()">Interpretar</button>
-                        <button onclick="downloadWireframe()" class="secondary">Descargar</button>
-                    </div>
+                    <button onclick="toggleDrawingMode()">Modo Dibujo</button>
+                    <button onclick="clearCanvases()" class="secondary">Limpiar</button>
+                    <button onclick="refineShapes()">Refinir Formas</button>
+                    <button onclick="interpretWireframe()">Interpretar</button>
+                    <button onclick="downloadWireframe()" class="secondary">Descargar</button>
                 </div>
                 <div id="message" class="message"></div>
-                <canvas id="wireframe-canvas" width="800" height="600"></canvas>
+                
+                <div class="canvas-wrapper">
+                    <div class="canvas-section">
+                        <div class="canvas-title">Dibujo Original</div>
+                        <canvas id="drawing-canvas" width="700" height="500"></canvas>
+                    </div>
+                    <div class="canvas-section">
+                        <div class="canvas-title">Wireframe Refinado</div>
+                        <canvas id="refined-canvas" width="700" height="500"></canvas>
+                    </div>
+                </div>
             </div>
             
             <div class="sidebar">
@@ -49,7 +139,7 @@
                     <h3>Guía de Dibujo</h3>
                     <ul>
                         <li>1. Dibuja libremente tus elementos</li>
-                        <li>2. Usa "Refinir Formas" para limpiar el dibujo</li>
+                        <li>2. Usa "Refinir Formas" para ver la interpretación</li>
                         <li>3. "Interpretar" detectará los elementos</li>
                         <br/>
                         <li>⭕ Círculo = Radio button</li>
@@ -68,19 +158,23 @@
     </div>
 
     <script>
-        // Inicializar el canvas
-        const canvas = new fabric.Canvas('wireframe-canvas', {
+        // Inicializar ambos canvas
+        const drawingCanvas = new fabric.Canvas('drawing-canvas', {
             isDrawingMode: true,
+            backgroundColor: 'white'
+        });
+        
+        const refinedCanvas = new fabric.Canvas('refined-canvas', {
+            isDrawingMode: false,
             backgroundColor: 'white'
         });
 
         // Configurar el pincel
-        canvas.freeDrawingBrush.width = 2;
-        canvas.freeDrawingBrush.color = "#000000";
+        drawingCanvas.freeDrawingBrush.width = 2;
+        drawingCanvas.freeDrawingBrush.color = "#000000";
 
-        // Variables de control
         let isDrawingMode = true;
-        
+
         function showMessage(text, isSuccess = true) {
             const message = document.getElementById('message');
             message.style.display = 'block';
@@ -92,22 +186,27 @@
             }, 3000);
         }
 
-        // Función para refinar las formas
         function refineShapes() {
-            const objects = canvas.getObjects();
+            // Limpiar el canvas refinado
+            refinedCanvas.clear();
+            refinedCanvas.backgroundColor = 'white';
+
+            // Obtener objetos del canvas de dibujo
+            const objects = drawingCanvas.getObjects();
             objects.forEach(obj => {
                 if (obj.type === 'path') {
                     const interpreted = interpretElement(obj);
                     if (interpreted.type !== 'unknown') {
-                        convertToCleanShape(obj, interpreted);
+                        addRefinedShape(obj, interpreted);
                     }
                 }
             });
-            canvas.renderAll();
-            showMessage('¡Formas refinadas! Ahora puedes seguir dibujando o interpretar el wireframe.');
+            
+            refinedCanvas.renderAll();
+            showMessage('¡Formas refinadas! Puedes ver el resultado en el canvas derecho.');
         }
 
-        function convertToCleanShape(path, interpreted) {
+        function addRefinedShape(path, interpreted) {
             const bounds = path.getBoundingRect();
             let newShape;
 
@@ -149,31 +248,25 @@
             }
 
             if (newShape) {
-                canvas.remove(path);
-                canvas.add(newShape);
+                refinedCanvas.add(newShape);
             }
         }
 
-        // Función para interpretar elementos [mantener el código existente de interpretElement]
         function interpretElement(path) {
             const bounds = path.getBoundingRect();
             
-            // Detectar círculo
             if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
                 return { type: 'radio button' };
             }
             
-            // Detectar cuadrado
             if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
                 return { type: 'checkbox' };
             }
             
-            // Detectar rectángulo (input/botón)
             if (bounds.width > bounds.height * 1.5) {
                 return { type: 'input/button', width: bounds.width, height: bounds.height };
             }
             
-            // Detectar texto
             if (bounds.height < 30) {
                 const isHeader = containsAsterisk(path);
                 return { type: isHeader ? 'header' : 'label' };
@@ -183,30 +276,28 @@
         }
 
         function containsAsterisk(path) {
-            // Implementar detección de asterisco basada en los puntos del path
-            return false; // Por ahora retornamos false
+            return false; // Implementar la lógica de detección de asterisco
         }
 
-        // Funciones de control
         function toggleDrawingMode() {
             isDrawingMode = !isDrawingMode;
-            canvas.isDrawingMode = isDrawingMode;
+            drawingCanvas.isDrawingMode = isDrawingMode;
             showMessage(isDrawingMode ? 'Modo dibujo activado' : 'Modo selección activado');
         }
 
-        function clearCanvas() {
-            canvas.clear();
-            canvas.backgroundColor = 'white';
-            canvas.renderAll();
+        function clearCanvases() {
+            drawingCanvas.clear();
+            drawingCanvas.backgroundColor = 'white';
+            refinedCanvas.clear();
+            refinedCanvas.backgroundColor = 'white';
             document.getElementById('interpretedElements').innerHTML = '';
-            showMessage('Canvas limpiado');
+            showMessage('Canvas limpiados');
         }
 
         function interpretWireframe() {
-            const objects = canvas.getObjects();
+            const objects = drawingCanvas.getObjects();
             const interpretedElements = objects.map(obj => interpretElement(obj));
             
-            // Mostrar elementos interpretados
             const container = document.getElementById('interpretedElements');
             container.innerHTML = interpretedElements.map(elem => `
                 <div class="element-preview">
@@ -219,20 +310,18 @@
         }
 
         function downloadWireframe() {
-            const dataURL = canvas.toDataURL({
+            const dataURL = refinedCanvas.toDataURL({
                 format: 'png',
                 quality: 1
             });
             const link = document.createElement('a');
-            link.download = 'wireframe.png';
+            link.download = 'wireframe-refinado.png';
             link.href = dataURL;
             link.click();
-            showMessage('Wireframe descargado');
+            showMessage('Wireframe refinado descargado');
         }
 
-        // Ya no convertimos automáticamente las formas al dibujar
-        canvas.on('path:created', function(e) {
-            // Solo guardamos el path
+        drawingCanvas.on('path:created', function(e) {
             console.log('Nuevo elemento dibujado');
         });
     </script>
