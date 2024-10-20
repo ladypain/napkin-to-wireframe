@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes</title>
+    <title>Creador de Wireframes Mejorado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         body {
@@ -18,6 +18,19 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .layout {
+            display: flex;
+            gap: 20px;
+        }
+        .canvas-area {
+            flex: 1;
+        }
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
         }
         .canvas-container {
             margin: 20px 0;
@@ -49,26 +62,64 @@
         button.secondary:hover {
             background: #e0e0e0;
         }
-        #output {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
+        .element-preview {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
             border-radius: 4px;
-            display: none;
+            border: 1px solid #ddd;
+        }
+        .guide {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+        .guide h3 {
+            margin-top: 0;
+        }
+        .guide ul {
+            padding-left: 20px;
+            margin: 0;
+        }
+        #interpretedElements {
+            max-height: 400px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Creador de Wireframes</h1>
-        <div class="tools">
-            <button onclick="toggleDrawingMode()">Modo Dibujo</button>
-            <button onclick="clearCanvas()" class="secondary">Limpiar</button>
-            <button onclick="interpretWireframe()">Interpretar</button>
-            <button onclick="downloadWireframe()" class="secondary">Descargar</button>
+        
+        <div class="layout">
+            <div class="canvas-area">
+                <div class="tools">
+                    <button onclick="toggleDrawingMode()">Modo Dibujo</button>
+                    <button onclick="clearCanvas()" class="secondary">Limpiar</button>
+                    <button onclick="interpretWireframe()">Interpretar</button>
+                    <button onclick="downloadWireframe()" class="secondary">Descargar</button>
+                </div>
+                <canvas id="wireframe-canvas" width="800" height="600"></canvas>
+            </div>
+            
+            <div class="sidebar">
+                <div class="guide">
+                    <h3>Guía de Dibujo</h3>
+                    <ul>
+                        <li>⭕ Círculo = Radio button</li>
+                        <li>⭕• Círculo con punto = Radio button seleccionado</li>
+                        <li>☐ Cuadrado = Checkbox</li>
+                        <li>☑️ Cuadrado con tick = Checkbox seleccionado</li>
+                        <li>*Texto = Header</li>
+                        <li>Texto normal = Label</li>
+                        <li>▭ Rectángulo = Input/Botón</li>
+                    </ul>
+                </div>
+                <h3>Elementos Interpretados</h3>
+                <div id="interpretedElements"></div>
+            </div>
         </div>
-        <canvas id="wireframe-canvas" width="800" height="600"></canvas>
-        <div id="output"></div>
     </div>
 
     <script>
@@ -84,8 +135,172 @@
 
         // Variables de control
         let isDrawingMode = true;
+        
+        // Diccionario de patrones de elementos
+        const elementPatterns = {
+            isCircle: (path) => {
+                const bounds = path.getBoundingRect();
+                return Math.abs(bounds.width - bounds.height) < 10 && 
+                       bounds.width < 50 && 
+                       isClosedPath(path);
+            },
+            isSquare: (path) => {
+                const bounds = path.getBoundingRect();
+                return Math.abs(bounds.width - bounds.height) < 10 && 
+                       bounds.width < 50 && 
+                       isRectangular(bounds);
+            },
+            isRectangle: (path) => {
+                const bounds = path.getBoundingRect();
+                return bounds.width > bounds.height * 1.5 && 
+                       isRectangular(bounds);
+            },
+            isText: (path) => {
+                const bounds = path.getBoundingRect();
+                return bounds.width > 10 && bounds.height < 30;
+            }
+        };
 
-        // Funciones de control
+        // Función para interpretar el tipo de elemento
+        function interpretElement(path) {
+            const bounds = path.getBoundingRect();
+            
+            if (elementPatterns.isCircle(path)) {
+                // Verificar si tiene un punto en el centro para radio button seleccionado
+                return { type: 'radio button', state: hasInnerDot(path) ? 'selected' : 'unselected' };
+            }
+            
+            if (elementPatterns.isSquare(path)) {
+                // Verificar si tiene un tick para checkbox seleccionado
+                return { type: 'checkbox', state: hasTick(path) ? 'selected' : 'unselected' };
+            }
+            
+            if (elementPatterns.isRectangle(path)) {
+                return { type: 'input/button', width: bounds.width, height: bounds.height };
+            }
+            
+            if (elementPatterns.isText(path)) {
+                // Verificar si comienza con * para header
+                const isHeader = path.path.some(p => p[0] === '*');
+                return { type: isHeader ? 'header' : 'label' };
+            }
+            
+            return { type: 'unknown' };
+        }
+
+        // Función para detectar un punto central (radio button seleccionado)
+        function hasInnerDot(path) {
+            const bounds = path.getBoundingRect();
+            const center = path.getCenterPoint();
+            return path.path.some(p => 
+                Math.abs(p[1] - center.x) < 5 && 
+                Math.abs(p[2] - center.y) < 5
+            );
+        }
+
+        // Función para detectar un tick (checkbox seleccionado)
+        function hasTick(path) {
+            // Implementar detección de tick
+            return false; // Por ahora retornamos false
+        }
+
+        // Mejorar la detección de formas después de dibujar
+        canvas.on('path:created', function(e) {
+            const path = e.path;
+            const interpreted = interpretElement(path);
+            
+            // Convertir a forma limpia según el tipo
+            switch(interpreted.type) {
+                case 'radio button':
+                    createCleanRadioButton(path, interpreted.state === 'selected');
+                    break;
+                case 'checkbox':
+                    createCleanCheckbox(path, interpreted.state === 'selected');
+                    break;
+                case 'input/button':
+                    createCleanRectangle(path);
+                    break;
+                // Los textos se dejan como están
+                default:
+                    break;
+            }
+        });
+
+        // Funciones para crear elementos limpios
+        function createCleanRadioButton(path, selected) {
+            const bounds = path.getBoundingRect();
+            const circle = new fabric.Circle({
+                left: bounds.left,
+                top: bounds.top,
+                radius: bounds.width / 2,
+                stroke: '#000000',
+                strokeWidth: 2,
+                fill: 'transparent'
+            });
+            
+            if (selected) {
+                const dot = new fabric.Circle({
+                    left: bounds.left + bounds.width / 4,
+                    top: bounds.top + bounds.height / 4,
+                    radius: bounds.width / 4,
+                    fill: '#000000'
+                });
+                canvas.add(dot);
+            }
+            
+            canvas.remove(path);
+            canvas.add(circle);
+            canvas.renderAll();
+        }
+
+        function createCleanCheckbox(path, selected) {
+            const bounds = path.getBoundingRect();
+            const rect = new fabric.Rect({
+                left: bounds.left,
+                top: bounds.top,
+                width: bounds.width,
+                height: bounds.height,
+                stroke: '#000000',
+                strokeWidth: 2,
+                fill: 'transparent'
+            });
+            
+            canvas.remove(path);
+            canvas.add(rect);
+            canvas.renderAll();
+        }
+
+        function createCleanRectangle(path) {
+            const bounds = path.getBoundingRect();
+            const rect = new fabric.Rect({
+                left: bounds.left,
+                top: bounds.top,
+                width: bounds.width,
+                height: bounds.height,
+                stroke: '#000000',
+                strokeWidth: 2,
+                fill: 'transparent'
+            });
+            
+            canvas.remove(path);
+            canvas.add(rect);
+            canvas.renderAll();
+        }
+
+        // Funciones auxiliares
+        function isClosedPath(path) {
+            if (path.path.length < 2) return false;
+            const start = path.path[0];
+            const end = path.path[path.path.length - 1];
+            return Math.abs(start[1] - end[1]) < 10 && 
+                   Math.abs(start[2] - end[2]) < 10;
+        }
+
+        function isRectangular(bounds) {
+            return bounds.width > 10 && bounds.height > 10;
+        }
+
+        // Funciones de control existentes
         function toggleDrawingMode() {
             isDrawingMode = !isDrawingMode;
             canvas.isDrawingMode = isDrawingMode;
@@ -95,50 +310,24 @@
             canvas.clear();
             canvas.backgroundColor = 'white';
             canvas.renderAll();
-            hideOutput();
+            document.getElementById('interpretedElements').innerHTML = '';
         }
 
-        function hideOutput() {
-            document.getElementById('output').style.display = 'none';
-        }
-
-        // Función para interpretar formas
         function interpretWireframe() {
             const objects = canvas.getObjects();
-            const interpretedElements = objects.map(obj => {
-                const bounds = obj.getBoundingRect();
-                let type = 'unknown';
-                
-                // Interpretar el tipo de elemento basado en sus dimensiones
-                if (bounds.width < 50 && bounds.height < 50) {
-                    type = 'checkbox';
-                } else if (bounds.width > bounds.height * 3) {
-                    type = 'dropdown';
-                } else if (bounds.width > bounds.height * 2) {
-                    type = 'text input';
-                } else if (bounds.width > 100 && bounds.height > 100) {
-                    type = 'content area';
-                }
-
-                return {
-                    type,
-                    x: Math.round(bounds.left),
-                    y: Math.round(bounds.top),
-                    width: Math.round(bounds.width),
-                    height: Math.round(bounds.height)
-                };
-            });
-
-            // Mostrar resultados
-            const output = document.getElementById('output');
-            output.style.display = 'block';
-            output.innerHTML = `
-                <h3>Elementos Detectados:</h3>
-                <pre>${JSON.stringify(interpretedElements, null, 2)}</pre>
-            `;
+            const interpretedElements = objects.map(obj => interpretElement(obj));
+            
+            // Mostrar elementos interpretados
+            const container = document.getElementById('interpretedElements');
+            container.innerHTML = interpretedElements.map(elem => `
+                <div class="element-preview">
+                    <strong>${elem.type}</strong>
+                    ${elem.state ? `<br>Estado: ${elem.state}` : ''}
+                    ${elem.width ? `<br>Dimensiones: ${Math.round(elem.width)}x${Math.round(elem.height)}` : ''}
+                </div>
+            `).join('');
         }
 
-        // Función para descargar el wireframe
         function downloadWireframe() {
             const dataURL = canvas.toDataURL({
                 format: 'png',
@@ -148,34 +337,6 @@
             link.download = 'wireframe.png';
             link.href = dataURL;
             link.click();
-        }
-
-        // Mejorar la detección de formas después de dibujar
-        canvas.on('path:created', function(e) {
-            const path = e.path;
-            const bounds = path.getBoundingRect();
-            
-            // Si el trazo parece ser un rectángulo
-            if (isRectangular(bounds, path)) {
-                const rect = new fabric.Rect({
-                    left: bounds.left,
-                    top: bounds.top,
-                    width: bounds.width,
-                    height: bounds.height,
-                    stroke: '#000000',
-                    strokeWidth: 2,
-                    fill: 'transparent'
-                });
-                canvas.remove(path);
-                canvas.add(rect);
-                canvas.renderAll();
-            }
-        });
-
-        function isRectangular(bounds, path) {
-            // Lógica simple para detectar si un trazo se parece a un rectángulo
-            const ratio = bounds.width / bounds.height;
-            return ratio > 0.5 && ratio < 2;
         }
     </script>
 </body>
