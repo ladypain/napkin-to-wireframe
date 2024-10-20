@@ -67,11 +67,7 @@
                 return { type: 'radio', checked: true, bounds: bounds };
             }
             
-            if (isCircularish(path) && bounds.width < 50) {
-                return { type: 'radio', checked: false, bounds: bounds };
-            }
-            
-            if (Math.abs(bounds.width - bounds.height) < 10 && bounds.width < 50) {
+            if (isSquarish(path)) {
                 return { type: 'checkbox', checked: hasInnerMark(path), bounds: bounds };
             }
             
@@ -101,18 +97,26 @@
 
         function hasInnerDot(path) {
             const bounds = path.getBoundingRect();
-            const center = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
-            const radius = Math.min(bounds.width, bounds.height) / 2;
-            
             const points = path.path.filter(p => p[0] === 'L').map(p => ({ x: p[1], y: p[2] }));
             
-            // Buscar puntos cerca del centro
-            const centerPoints = points.filter(p => 
-                Math.sqrt(Math.pow(p.x - center.x, 2) + Math.pow(p.y - center.y, 2)) < radius * 0.5
+            // Encontrar los puntos del contorno
+            const edgePoints = points.filter(p => 
+                p.x === bounds.left || p.x === bounds.left + bounds.width ||
+                p.y === bounds.top || p.y === bounds.top + bounds.height
             );
-            
-            // Verificar si hay un grupo de puntos cerca del centro
-            return centerPoints.length > 5;
+        
+            // Buscar puntos que estén dentro de la forma pero no en el borde
+            const innerPoints = points.filter(p => {
+                const isOnEdge = edgePoints.some(ep => 
+                    Math.abs(p.x - ep.x) < 2 && Math.abs(p.y - ep.y) < 2
+                );
+                return !isOnEdge &&
+                       p.x > bounds.left && p.x < bounds.left + bounds.width &&
+                       p.y > bounds.top && p.y < bounds.top + bounds.height;
+            });
+        
+            // Verificar si hay un grupo pequeño de puntos internos
+            return innerPoints.length >= 3 && innerPoints.length <= 20;
         }
 
         function hasInnerMark(path) {
