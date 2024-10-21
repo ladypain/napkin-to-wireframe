@@ -6,8 +6,9 @@
     <title>Creador de Wireframes Avanzado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://docs.opencv.org/4.5.2/opencv.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/5.0.0/gridstack-all.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/5.0.0/gridstack.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@7.2.3/dist/gridstack.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@7.2.3/dist/gridstack-all.js"></script>
+
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -51,13 +52,14 @@
             drawingCanvas.freeDrawingBrush.width = 2;
             drawingCanvas.freeDrawingBrush.color = "#000000";
         
+            // Inicializar GridStack
             grid = GridStack.init({
                 column: 12,
                 row: 6,
                 cellHeight: 60,
                 acceptWidgets: true,
                 disableOneColumnMode: true,
-            }, '#refined-container .grid-stack');
+            }, '#refined-container');
             
             console.log("Canvases inicializados");
         }
@@ -160,7 +162,7 @@
                         content = 'Label';
                         break;
                 }
-                grid.addWidget({x: elem.rect.x / 50, y: elem.rect.y / 50, w: Math.max(1, elem.rect.width / 50), h: Math.max(1, elem.rect.height / 50), content: content});
+                grid.addWidget({x: Math.floor(elem.rect.x / 50), y: Math.floor(elem.rect.y / 50), w: Math.max(1, Math.floor(elem.rect.width / 50)), h: Math.max(1, Math.floor(elem.rect.height / 50)), content: content});
             });
             console.log("Wireframe refinado mostrado");
         }
