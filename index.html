@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creador de Wireframes</title>
+    <title>Creador de Wireframes Avanzado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://docs.opencv.org/4.5.2/opencv.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/5.0.0/gridstack-all.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/5.0.0/gridstack.min.css" rel="stylesheet"/>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -13,11 +16,12 @@
         .tools { margin-bottom: 10px; }
         button { padding: 8px 16px; margin-right: 10px; cursor: pointer; }
         #message { padding: 10px; margin: 10px 0; border-radius: 4px; display: none; }
+        .grid-stack-item-content { background: white; border: 1px solid #ddd; padding: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Creador de Wireframes</h1>
+        <h1>Creador de Wireframes Avanzado</h1>
         <div class="tools">
             <button onclick="toggleDrawingMode()">Modo Dibujo</button>
             <button onclick="clearCanvases()">Limpiar</button>
@@ -29,26 +33,30 @@
             <div class="canvas-container">
                 <canvas id="drawing-canvas" width="600" height="400"></canvas>
             </div>
-            <div class="canvas-container">
-                <canvas id="refined-canvas" width="600" height="400"></canvas>
+            <div class="canvas-container" id="refined-container">
+                <div class="grid-stack"></div>
             </div>
         </div>
     </div>
 
     <script>
-        let drawingCanvas, refinedCanvas, isDrawingMode = true;
+        let drawingCanvas, grid, isDrawingMode = true;
 
         function initializeCanvases() {
             drawingCanvas = new fabric.Canvas('drawing-canvas', {
                 isDrawingMode: true,
                 backgroundColor: 'white'
             });
-            refinedCanvas = new fabric.Canvas('refined-canvas', {
-                isDrawingMode: false,
-                backgroundColor: 'white'
-            });
             drawingCanvas.freeDrawingBrush.width = 2;
             drawingCanvas.freeDrawingBrush.color = "#000000";
+
+            grid = GridStack.init({
+                column: 12,
+                row: 6,
+                cellHeight: 60,
+                acceptWidgets: true,
+                disableOneColumnMode: true,
+            });
         }
 
         function showMessage(text, isSuccess = true) {
@@ -61,164 +69,76 @@
         }
 
         function interpretWireframe() {
-            console.log("Iniciando interpretación del wireframe");
-            refinedCanvas.clear();
-            refinedCanvas.backgroundColor = 'white';
-            const objects = drawingCanvas.getObjects();
-            console.log(`Número de objetos encontrados: ${objects.length}`);
+            const dataUrl = drawingCanvas.toDataURL();
+            const img = new Image();
+            img.onload = function() {
+                const mat = cv.imread(img);
+                const elements = detectElements(mat);
+                displayRefinedWireframe(elements);
+                mat.delete();
+            };
+            img.src = dataUrl;
+        }
 
-            objects.forEach((obj, index) => {
-                if (obj.type === 'path') {
-                    console.log(`Interpretando objeto ${index + 1}`);
-                    const interpreted = interpretElement(obj);
-                    console.log(`Objeto interpretado como: ${interpreted.type}`);
-                    drawRefinedShape(interpreted);
+        function detectElements(mat) {
+            const elements = [];
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            cv.findContours(mat, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            for (let i = 0; i < contours.size(); ++i) {
+                let cnt = contours.get(i);
+                let area = cv.contourArea(cnt);
+                if (area > 100) {  // Filtrar contornos pequeños
+                    let rect = cv.boundingRect(cnt);
+                    let element = interpretElement(rect, mat);
+                    elements.push(element);
                 }
+                cnt.delete();
+            }
+
+            contours.delete();
+            hierarchy.delete();
+            return elements;
+        }
+
+        function interpretElement(rect, mat) {
+            const aspectRatio = rect.width / rect.height;
+            if (aspectRatio > 1.5) {
+                return { type: 'input', rect: rect };
+            } else if (Math.abs(aspectRatio - 1) < 0.2 && rect.width < 50) {
+                return { type: 'checkbox', rect: rect };
+            } else if (rect.width < 50 && rect.height < 50) {
+                // Verificar si es un radio button (círculo)
+                let center = new cv.Point(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                let result = cv.minEnclosingCircle(mat.roi(rect));
+                if (result.radius > 0 && result.radius < rect.width / 2) {
+                    return { type: 'radio', rect: rect };
+                }
+            }
+            return { type: 'label', rect: rect };
+        }
+
+        function displayRefinedWireframe(elements) {
+            grid.removeAll();
+            elements.forEach((elem, index) => {
+                let content = '';
+                switch(elem.type) {
+                    case 'input':
+                        content = '<input type="text" style="width: 100%;">';
+                        break;
+                    case 'checkbox':
+                        content = '<input type="checkbox">';
+                        break;
+                    case 'radio':
+                        content = '<input type="radio" name="group1">';
+                        break;
+                    case 'label':
+                        content = 'Label';
+                        break;
+                }
+                grid.addWidget({x: elem.rect.x / 50, y: elem.rect.y / 50, w: Math.max(1, elem.rect.width / 50), h: Math.max(1, elem.rect.height / 50), content: content});
             });
-
-            refinedCanvas.renderAll();
-            console.log("Interpretación finalizada");
-            showMessage('Wireframe interpretado');
-        }
-
-        function interpretElement(path) {
-            const bounds = path.getBoundingRect();
-            console.log(`Analizando elemento: Ancho=${bounds.width}, Alto=${bounds.height}`);
-            
-            if (hasInnerDot(path)) {
-                console.log("Detectado radio button");
-                return { type: 'radio', checked: true, bounds: bounds };
-            }
-            
-            if (isSquarish(path)) {
-                console.log("Detectado checkbox");
-                return { type: 'checkbox', checked: hasInnerMark(path), bounds: bounds };
-            }
-            
-            if (bounds.width > bounds.height * 1.5 && bounds.height > 20) {
-                console.log("Detectado input");
-                return { type: 'input', bounds: bounds };
-            }
-            
-            if (bounds.height < 30 && bounds.width > 30) {
-                console.log("Detectado label");
-                return { type: 'label', bounds: bounds };
-            }
-            
-            console.log("Elemento no reconocido");
-            return { type: 'unknown', bounds: bounds };
-        }
-
-        function hasInnerDot(path) {
-            const bounds = path.getBoundingRect();
-            const points = path.path.filter(p => p[0] === 'L').map(p => ({ x: p[1], y: p[2] }));
-            
-            // Encontrar los puntos del contorno
-            const edgePoints = points.filter(p => 
-                p.x === bounds.left || p.x === bounds.left + bounds.width ||
-                p.y === bounds.top || p.y === bounds.top + bounds.height
-            );
-
-            // Buscar puntos que estén dentro de la forma pero no en el borde
-            const innerPoints = points.filter(p => {
-                const isOnEdge = edgePoints.some(ep => 
-                    Math.abs(p.x - ep.x) < 2 && Math.abs(p.y - ep.y) < 2
-                );
-                return !isOnEdge &&
-                       p.x > bounds.left && p.x < bounds.left + bounds.width &&
-                       p.y > bounds.top && p.y < bounds.top + bounds.height;
-            });
-
-            // Verificar si hay un grupo pequeño de puntos internos
-            return innerPoints.length >= 3 && innerPoints.length <= 20;
-        }
-
-        function isSquarish(path) {
-            const bounds = path.getBoundingRect();
-            const aspectRatio = bounds.width / bounds.height;
-            return Math.abs(aspectRatio - 1) < 0.2 && bounds.width < 50 && bounds.height < 50;
-        }
-
-        function hasInnerMark(path) {
-            const complexity = path.complexity();
-            return complexity > 5 && complexity < 20;
-        }
-
-        function drawRefinedShape(interpretation) {
-            console.log(`Dibujando forma refinada: ${interpretation.type}`);
-            const bounds = interpretation.bounds;
-            const standardSize = 20;
-            let shape;
-
-            switch(interpretation.type) {
-                case 'radio':
-                    shape = new fabric.Circle({
-                        left: bounds.left,
-                        top: bounds.top,
-                        radius: standardSize / 2,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent'
-                    });
-                    if (interpretation.checked) {
-                        const dot = new fabric.Circle({
-                            left: bounds.left + standardSize / 4,
-                            top: bounds.top + standardSize / 4,
-                            radius: standardSize / 4,
-                            fill: '#000000'
-                        });
-                        refinedCanvas.add(dot);
-                    }
-                    break;
-                case 'checkbox':
-                    shape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: standardSize,
-                        height: standardSize,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent'
-                    });
-                    if (interpretation.checked) {
-                        const check = new fabric.Text('✓', {
-                            left: bounds.left + 2,
-                            top: bounds.top - 2,
-                            fontSize: standardSize,
-                            fill: '#000000'
-                        });
-                        refinedCanvas.add(check);
-                    }
-                    break;
-                case 'input':
-                    shape = new fabric.Rect({
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                        stroke: '#000000',
-                        strokeWidth: 2,
-                        fill: 'transparent',
-                        rx: 4,
-                        ry: 4
-                    });
-                    break;
-                case 'label':
-                    shape = new fabric.Text('Label', {
-                        left: bounds.left,
-                        top: bounds.top,
-                        fontSize: 14,
-                        fill: '#000000'
-                    });
-                    break;
-            }
-
-            if (shape) {
-                console.log(`Añadiendo forma al canvas refinado: ${interpretation.type}`);
-                refinedCanvas.add(shape);
-            } else {
-                console.log(`No se pudo crear una forma para: ${interpretation.type}`);
-            }
         }
 
         function toggleDrawingMode() {
@@ -229,27 +149,28 @@
 
         function clearCanvases() {
             drawingCanvas.clear();
-            refinedCanvas.clear();
             drawingCanvas.backgroundColor = 'white';
-            refinedCanvas.backgroundColor = 'white';
-            drawingCanvas.renderAll();
-            refinedCanvas.renderAll();
+            grid.removeAll();
             showMessage('Canvases limpiados');
         }
 
         function downloadWireframe() {
-            const dataURL = refinedCanvas.toDataURL({
-                format: 'png',
-                quality: 1
+            html2canvas(document.querySelector("#refined-container")).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'wireframe.png';
+                link.href = canvas.toDataURL();
+                link.click();
             });
-            const link = document.createElement('a');
-            link.download = 'wireframe.png';
-            link.href = dataURL;
-            link.click();
             showMessage('Wireframe descargado');
         }
 
-        window.onload = initializeCanvases;
+        window.onload = function() {
+            initializeCanvases();
+            cv['onRuntimeInitialized'] = function() {
+                console.log('OpenCV ready');
+            };
+        };
     </script>
+    <script async src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </body>
 </html>
