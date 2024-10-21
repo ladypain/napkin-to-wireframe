@@ -59,10 +59,10 @@
                 cellHeight: 60,
                 acceptWidgets: true,
                 disableOneColumnMode: true,
-            }, '#refined-container');
+            }, '#refined-container .grid-stack');
             
             console.log("Canvases inicializados");
-        }
+}
 
         function showMessage(text, isSuccess = true) {
             const message = document.getElementById('message');
@@ -87,39 +87,40 @@
                 displayRefinedWireframe(elements);
                 mat.delete();
             };
-            img.onerror = function() {
-                console.error("Error al cargar la imagen");
-            };
             img.src = dataUrl;
         }
 
         function detectElements(mat) {
             console.log("Detectando elementos");
             const elements = [];
-            let gray = new cv.Mat();
-            let contours = new cv.MatVector();
-            let hierarchy = new cv.Mat();
+            try {
+                let gray = new cv.Mat();
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
         
-            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-            cv.threshold(gray, gray, 150, 255, cv.THRESH_BINARY_INV);
-            cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+                cv.threshold(gray, gray, 150, 255, cv.THRESH_BINARY_INV);
+                cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
         
-            console.log("Número de contornos encontrados:", contours.size());
+                console.log("Número de contornos encontrados:", contours.size());
         
-            for (let i = 0; i < contours.size(); ++i) {
-                let cnt = contours.get(i);
-                let area = cv.contourArea(cnt);
-                if (area > 100) {  // Filtrar contornos pequeños
-                    let rect = cv.boundingRect(cnt);
-                    let element = interpretElement(rect, mat);
-                    elements.push(element);
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt);
+                    if (area > 100) {  // Filtrar contornos pequeños
+                        let rect = cv.boundingRect(cnt);
+                        let element = interpretElement(rect, mat);
+                        elements.push(element);
+                    }
+                    cnt.delete();
                 }
-                cnt.delete();
-            }
         
-            gray.delete();
-            contours.delete();
-            hierarchy.delete();
+                gray.delete();
+                contours.delete();
+                hierarchy.delete();
+            } catch (error) {
+                console.error("Error en detectElements:", error);
+            }
         
             console.log("Elementos detectados:", elements);
             return elements;
@@ -143,7 +144,7 @@
         }
 
         function displayRefinedWireframe(elements) {
-            console.log("Mostrando wireframe refinado");
+            console.log("Mostrando wireframe refinado", elements);
             grid.removeAll();
             elements.forEach((elem, index) => {
                 console.log("Procesando elemento:", elem);
@@ -162,7 +163,10 @@
                         content = 'Label';
                         break;
                 }
-                grid.addWidget({x: Math.floor(elem.rect.x / 50), y: Math.floor(elem.rect.y / 50), w: Math.max(1, Math.floor(elem.rect.width / 50)), h: Math.max(1, Math.floor(elem.rect.height / 50)), content: content});
+                grid.addWidget({x: Math.floor(elem.rect.x / 50), y: Math.floor(elem.rect.y / 50), 
+                                w: Math.max(1, Math.floor(elem.rect.width / 50)), 
+                                h: Math.max(1, Math.floor(elem.rect.height / 50)), 
+                                content: content});
             });
             console.log("Wireframe refinado mostrado");
         }
