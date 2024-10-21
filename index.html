@@ -59,10 +59,10 @@
                 cellHeight: 60,
                 acceptWidgets: true,
                 disableOneColumnMode: true,
-            }, '#refined-container .grid-stack');
+            }, '#refined-container > .grid-stack');
             
             console.log("Canvases inicializados");
-}
+        }
 
         function showMessage(text, isSuccess = true) {
             const message = document.getElementById('message');
@@ -194,13 +194,30 @@
             showMessage('Wireframe descargado');
         }
 
-        window.onload = function() {
+        let canvasesInitialized = false;
+        
+        function initializeApp() {
+            if (canvasesInitialized) return;
             initializeCanvases();
+            canvasesInitialized = true;
+            console.log('Aplicación inicializada');
+        }
+        
+        window.onload = function() {
             cv['onRuntimeInitialized'] = function() {
                 document.getElementById('opencv-status').textContent = 'OpenCV: Listo';
                 console.log('OpenCV ready');
+                initializeApp();
             };
         };
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('opencv-status').textContent = 'OpenCV: Cargando...';
+            if (cv.Mat) {
+                initializeApp();
+            }
+        });
+        
     </script>
     <script async src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </body>
