@@ -20,6 +20,7 @@
     </style>
 </head>
 <body>
+    <div id="opencv-status">OpenCV: Cargando...</div>
     <div class="container">
         <h1>Creador de Wireframes Avanzado</h1>
         <div class="tools">
@@ -49,14 +50,16 @@
             });
             drawingCanvas.freeDrawingBrush.width = 2;
             drawingCanvas.freeDrawingBrush.color = "#000000";
-
+        
             grid = GridStack.init({
                 column: 12,
                 row: 6,
                 cellHeight: 60,
                 acceptWidgets: true,
                 disableOneColumnMode: true,
-            });
+            }, '#refined-container .grid-stack');
+            
+            console.log("Canvases inicializados");
         }
 
         function showMessage(text, isSuccess = true) {
@@ -69,23 +72,38 @@
         }
 
         function interpretWireframe() {
+            console.log("Iniciando interpretación del wireframe");
             const dataUrl = drawingCanvas.toDataURL();
+            console.log("DataURL generado");
             const img = new Image();
             img.onload = function() {
+                console.log("Imagen cargada");
                 const mat = cv.imread(img);
+                console.log("Matriz creada");
                 const elements = detectElements(mat);
+                console.log("Elementos detectados:", elements);
                 displayRefinedWireframe(elements);
                 mat.delete();
+            };
+            img.onerror = function() {
+                console.error("Error al cargar la imagen");
             };
             img.src = dataUrl;
         }
 
         function detectElements(mat) {
+            console.log("Detectando elementos");
             const elements = [];
+            let gray = new cv.Mat();
             let contours = new cv.MatVector();
             let hierarchy = new cv.Mat();
-            cv.findContours(mat, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
+        
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            cv.threshold(gray, gray, 150, 255, cv.THRESH_BINARY_INV);
+            cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        
+            console.log("Número de contornos encontrados:", contours.size());
+        
             for (let i = 0; i < contours.size(); ++i) {
                 let cnt = contours.get(i);
                 let area = cv.contourArea(cnt);
@@ -96,9 +114,12 @@
                 }
                 cnt.delete();
             }
-
+        
+            gray.delete();
             contours.delete();
             hierarchy.delete();
+        
+            console.log("Elementos detectados:", elements);
             return elements;
         }
 
@@ -120,8 +141,10 @@
         }
 
         function displayRefinedWireframe(elements) {
+            console.log("Mostrando wireframe refinado");
             grid.removeAll();
             elements.forEach((elem, index) => {
+                console.log("Procesando elemento:", elem);
                 let content = '';
                 switch(elem.type) {
                     case 'input':
@@ -139,6 +162,7 @@
                 }
                 grid.addWidget({x: elem.rect.x / 50, y: elem.rect.y / 50, w: Math.max(1, elem.rect.width / 50), h: Math.max(1, elem.rect.height / 50), content: content});
             });
+            console.log("Wireframe refinado mostrado");
         }
 
         function toggleDrawingMode() {
@@ -167,6 +191,7 @@
         window.onload = function() {
             initializeCanvases();
             cv['onRuntimeInitialized'] = function() {
+                document.getElementById('opencv-status').textContent = 'OpenCV: Listo';
                 console.log('OpenCV ready');
             };
         };
